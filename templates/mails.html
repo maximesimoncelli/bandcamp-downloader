@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Bandcamp Mailing List Utility</title>
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        input[type="text"], select { width: 100%; padding: 8px; box-sizing: border-box; }
+        input[type="checkbox"] { margin-right: 5px; }
+        .status { padding: 10px; border: 1px solid #ccc; background-color: #f9f9f9; text-align: center; margin-bottom: 15px; }
+        .submit-btn { width: 100%; padding: 10px; font-size: 16px; cursor: pointer; }
+        .pdf-link { padding: 10px; border: 1px solid #28a745; background-color: #d4edda; text-align: center; margin-bottom: 15px; }
+        .pdf-link a { color: #155724; text-decoration: none; font-weight: bold; }
+        .pdf-link a:hover { text-decoration: underline; }
+        .running { color: #856404; background-color: #fff3cd; border-color: #ffeaa7; }
+        .hidden { display: none; }
+        .nav-link { display: inline-block; margin-bottom: 20px; color: #007bff; text-decoration: none; }
+        .nav-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <a href="/" class="nav-link">← Back to Utilities</a>
+    
+    <h1>Bandcamp Mailing List Utility</h1>
+    
+    <!-- Status messages -->
+    {% if status %}
+    <div class="status" id="statusMessage">{{ status }}</div>
+    {% endif %}
+    
+    <!-- PDF link (initially hidden) -->
+    <div class="pdf-link hidden" id="pdfLink">
+        <strong>PDF Report Ready:</strong> 
+        <a href="" id="pdfDownload" target="_blank">Download PDF Report</a>
+    </div>
+    
+    <!-- Running status (initially hidden) -->
+    <div class="status running hidden" id="runningStatus">
+        Mailing list utility is running... Please wait.
+    </div>
+    
+    <form action="/mails" method="post" id="utilityForm">
+        <div class="form-group">
+            <label for="browser">Browser:</label>
+            <select id="browser" name="browser">
+                {% for b in browsers %}
+                <option value="{{ b }}" {% if b == 'firefox' %}selected{% endif %}>{{ b|title }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="directory">Output Directory:</label>
+            <input type="text" id="directory" name="directory" value="outputs">
+        </div>
+        <div class="form-group">
+            <label>
+                <input type="checkbox" name="force" value="on"> Force Re-download
+            </label>
+        </div>
+        <div class="form-group">
+            <label>
+                <input type="checkbox" name="consolidate_only" value="on"> Consolidate Existing Files Only
+            </label>
+        </div>
+        <button type="submit" class="submit-btn" id="submitBtn">Run Mailing List Utility</button>
+    </form>
+
+    <script>
+        let statusCheckInterval;
+        
+        function checkStatus() {
+            fetch('/status/mails')
+                .then(response => response.json())
+                .then(data => {
+                    const runningStatus = document.getElementById('runningStatus');
+                    const pdfLink = document.getElementById('pdfLink');
+                    const pdfDownload = document.getElementById('pdfDownload');
+                    const submitBtn = document.getElementById('submitBtn');
+                    
+                    if (data.running) {
+                        runningStatus.classList.remove('hidden');
+                        submitBtn.disabled = true;
+                        submitBtn.textContent = 'Running...';
+                    } else {
+                        runningStatus.classList.add('hidden');
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Run Mailing List Utility';
+                        
+                        if (data.completed && data.pdf_filename) {
+                            pdfDownload.href = '/download/mails/' + data.pdf_filename;
+                            pdfLink.classList.remove('hidden');
+                            
+                            // Stop checking once completed
+                            if (statusCheckInterval) {
+                                clearInterval(statusCheckInterval);
+                            }
+                        }
+                    }
+                })
+                .catch(error => console.error('Error checking status:', error));
+        }
+        
+        // Check initial status on page load
+        window.addEventListener('load', function() {
+            {% if utility_status.running %}
+                checkStatus();
+                statusCheckInterval = setInterval(checkStatus, 2000); // Check every 2 seconds
+            {% elif utility_status.completed and utility_status.pdf_filename %}
+                checkStatus(); // Show PDF link if already available
+            {% endif %}
+        });
+        
+        // Handle form submission
+        document.getElementById('utilityForm').addEventListener('submit', function() {
+            // Hide any existing PDF link
+            document.getElementById('pdfLink').classList.add('hidden');
+            
+            // Start status checking after a short delay
+            setTimeout(() => {
+                statusCheckInterval = setInterval(checkStatus, 2000);
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
