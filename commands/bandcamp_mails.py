@@ -8,8 +8,11 @@ import re
 import sys
 import time
 import urllib.parse
+import shutil
 from datetime import datetime
 from typing import Dict, List, Any, Tuple
+import sqlite3
+from utils.logger import logger
 
 # These require pip installs
 import requests
@@ -109,21 +112,25 @@ def main(config=None) -> int:
     CONFIG['CONSOLIDATE_ONLY'] = args.consolidate_only
 
     if config:
-        print(config)
+        logger(str(config), "DEBUG")
         CONFIG['OUTPUT_DIR'] = config.get('directory', CONFIG['OUTPUT_DIR'])
         CONFIG['FORCE'] = config.get('force', CONFIG['FORCE'])
         CONFIG['VERBOSE'] = config.get('verbose', CONFIG['VERBOSE'])
         CONFIG['CONSOLIDATE_ONLY'] = config.get('consolidate_only', False)
 
     if CONFIG['FORCE']:
-        print('WARNING: --force flag set, existing files will be overwritten.')
+        logger(
+            'WARNING: --force flag set, existing files will be overwritten.', "WARNING")
+
+    # Clear outputs directory before starting
+    clear_outputs_directory()
 
     # Initialize TQDM progress bar
     CONFIG['TQDM'] = tqdm(total=0, unit='files',
                           disable=CONFIG['VERBOSE'] == 0)
 
     if CONFIG['CONSOLIDATE_ONLY']:
-        print('Consolidating existing CSV files...')
+        logger('Consolidating existing CSV files...', "INFO")
         return consolidate_csv_files()
     else:
         try:
@@ -136,15 +143,16 @@ def main(config=None) -> int:
                 CONFIG['TQDM'].update(1)
 
             CONFIG['TQDM'].close()
-            print('Download complete. Analyzing and consolidating CSV files...')
+            logger(
+                'Download complete. Analyzing and consolidating CSV files...', "INFO")
             return consolidate_csv_files()
 
         except (ImportError, UnboundLocalError):
             CONFIG['TQDM'].close()
-            print('Please add your artists in artists.py')
+            logger('Please add your artists in artists.py', "ERROR")
 
         finally:
-            print('Done')
+            logger('Done', "INFO")
 
 
 def download_file(_url: str, artist: str, _to: str = '', _attempt: int = 1) -> None:
@@ -219,6 +227,66 @@ def sanitize_path(_path: str) -> str:
         return _path
 
 
+def clear_outputs_directory() -> None:
+    """Clear mailing-related contents of the outputs directory before starting a fresh run."""
+    outputs_dir = CONFIG['OUTPUT_DIR']
+
+    if not os.path.exists(outputs_dir):
+        logger(f'Creating outputs directory: {outputs_dir}', "INFO")
+        os.makedirs(outputs_dir, exist_ok=True)
+        return
+
+    logger(
+        f'Clearing mailing-related files from outputs directory: {outputs_dir}', "INFO")
+
+    # Directories to clear for mailing lists
+    mail_dirs = ['mails']
+
+    for dir_name in mail_dirs:
+        dir_path = os.path.join(outputs_dir, dir_name)
+        if os.path.exists(dir_path):
+            logger(f'  Clearing {dir_name}/ directory', "INFO")
+            try:
+                shutil.rmtree(dir_path)
+                if CONFIG['VERBOSE'] >= 2:
+                    logger(f'    Removed directory: {dir_name}/', "INFO")
+            except Exception as e:
+                logger(
+                    f'WARNING: Could not remove {dir_name}/ directory: {e}', "WARNING")
+
+    # Also clear any reports directory files related to mailing lists
+    reports_dir = os.path.join(outputs_dir, 'reports')
+    if os.path.exists(reports_dir):
+        for item in os.listdir(reports_dir):
+            item_path = os.path.join(reports_dir, item)
+            # Remove files that contain mailing-related keywords
+            if os.path.isfile(item_path) and any(keyword in item.lower() for keyword in ['mailing', 'mail', 'consolidated_bandcamp_mailing']):
+                try:
+                    os.remove(item_path)
+                    if CONFIG['VERBOSE'] >= 2:
+                        logger(
+                            f'    Removed mailing file from reports/: {item}', "INFO")
+                except Exception as e:
+                    logger(
+                        f'WARNING: Could not remove mailing file {item}: {e}', "WARNING")
+
+    # Also remove any mailing-related files in the root outputs directory
+    if os.path.exists(outputs_dir):
+        for item in os.listdir(outputs_dir):
+            item_path = os.path.join(outputs_dir, item)
+            # Remove files that contain mailing-related keywords
+            if os.path.isfile(item_path) and any(keyword in item.lower() for keyword in ['mailing', 'mail', 'bandcamp_mailing']):
+                try:
+                    os.remove(item_path)
+                    if CONFIG['VERBOSE'] >= 2:
+                        logger(f'    Removed mailing file: {item}', "INFO")
+                except Exception as e:
+                    logger(
+                        f'WARNING: Could not remove mailing file {item}: {e}', "WARNING")
+
+    logger('Mailing-related files cleared successfully', "INFO")
+
+
 def get_cookies():
     """Retrieves cookies from a specified browser for Bandcamp authentication."""
     if CONFIG['BROWSER'] == 'firefox':
@@ -262,8 +330,8 @@ def process_single_csv(file_path: str) -> List[Dict[str, Any]]:
                     header = next(reader)
                 except StopIteration:
                     if CONFIG['VERBOSE'] >= 1:
-                        print(
-                            f'WARNING: Empty file skipped: {os.path.basename(file_path)}')
+                        logger(
+                            f'WARNING: Empty file skipped: {os.path.basename(file_path)}', "WARNING")
                     return []
 
                 for row in reader:
@@ -293,6 +361,85 @@ def write_consolidated_csv(file_path: str, headers: List[str], data: Dict[str, A
             writer.writerow(final_row)
 
 
+def create_mailing_database_schema(db_path: str) -> None:
+    """Create the SQLite database with the appropriate schema for mailing list data."""
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    # Create table with all the mailing list columns
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS mailing_lists (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL,
+            fullname TEXT,
+            firstname TEXT,
+            lastname TEXT,
+            date_added TEXT,
+            country TEXT,
+            postal_code TEXT,
+            num_purchases INTEGER,
+            total_purchases INTEGER,
+            import_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            source_file TEXT,
+            UNIQUE(email, source_file)
+        )
+    ''')
+
+    # Create indexes for common queries
+    cursor.execute(
+        'CREATE INDEX IF NOT EXISTS idx_email ON mailing_lists(email)')
+    cursor.execute(
+        'CREATE INDEX IF NOT EXISTS idx_country ON mailing_lists(country)')
+    cursor.execute(
+        'CREATE INDEX IF NOT EXISTS idx_date_added ON mailing_lists(date_added)')
+    cursor.execute(
+        'CREATE INDEX IF NOT EXISTS idx_purchases ON mailing_lists(num_purchases)')
+
+    conn.commit()
+    conn.close()
+
+
+def insert_mailing_data(db_path: str, email_data: Dict[str, Any], source_files: List[str]) -> int:
+    """Insert mailing list data into the SQLite database."""
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    inserted_count = 0
+
+    for email, record_data in email_data.items():
+        try:
+            record = record_data['record']
+
+            # Convert purchases to integer
+            num_purchases = int(
+                record[7]) if record[7] and record[7].strip() else 0
+            total_purchases = record_data['total_purchases']
+
+            # Determine source file (use first file where this email was found)
+            # For now, just list all sources
+            source_file = ', '.join(source_files)
+
+            cursor.execute('''
+                INSERT OR REPLACE INTO mailing_lists (
+                    email, fullname, firstname, lastname, date_added,
+                    country, postal_code, num_purchases, total_purchases, source_file
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                email, record[1], record[2], record[3], record[4],
+                record[5], record[6], num_purchases, total_purchases, source_file
+            ))
+            inserted_count += 1
+
+        except (ValueError, TypeError, sqlite3.Error) as e:
+            if CONFIG['VERBOSE'] >= 2:
+                print(f'  WARNING: Failed to insert email {email}: {e}')
+            continue
+
+    conn.commit()
+    conn.close()
+    return inserted_count
+
+
 def consolidate_csv_files() -> None:
     """Consolidates all mailing list CSV files into a single file."""
     full_expected_headers = ['email', 'fullname', 'firstname',
@@ -303,13 +450,13 @@ def consolidate_csv_files() -> None:
 
     csv_files = get_csv_files(mails_dir)
     if not csv_files:
-        print(f'No mailing list CSV files found in {mails_dir}.')
+        logger(f'No mailing list CSV files found in {mails_dir}.', "WARNING")
         return
 
     if CONFIG['VERBOSE'] >= 1:
-        print(f'Found {len(csv_files)} CSV files to consolidate:')
+        logger(f'Found {len(csv_files)} CSV files to consolidate:', "INFO")
         for csv_file in csv_files:
-            print(f'  - {os.path.basename(csv_file)}')
+            logger(f'  - {os.path.basename(csv_file)}', "INFO")
 
     email_data: Dict[str, Any] = {}
     files_processed = 0
@@ -333,8 +480,8 @@ def consolidate_csv_files() -> None:
                 except ValueError:
                     parsed_date = datetime.now()
                     if CONFIG['VERBOSE'] >= 2:
-                        print(
-                            f'  WARNING: Could not parse date "{date_added_str}" for email {email}')
+                        logger(
+                            f'  WARNING: Could not parse date "{date_added_str}" for email {email}', "WARNING")
 
                 try:
                     num_purchases = int(row[7]) if row[7].strip() else 0
@@ -359,12 +506,12 @@ def consolidate_csv_files() -> None:
                     }
 
             if CONFIG['VERBOSE'] >= 2:
-                print(
-                    f'  Processed {len(records)} rows from {os.path.basename(csv_file)}')
+                logger(
+                    f'  Processed {len(records)} rows from {os.path.basename(csv_file)}', "INFO")
 
         except Exception as e:
-            print(
-                f'ERROR: Failed to process {os.path.basename(csv_file)}: {e}')
+            logger(
+                f'ERROR: Failed to process {os.path.basename(csv_file)}: {e}', "ERROR")
             continue
 
     os.makedirs(reports_dir, exist_ok=True)
@@ -372,135 +519,34 @@ def consolidate_csv_files() -> None:
     consolidated_path = sanitize_path(
         os.path.join(reports_dir, consolidated_filename))
 
+    # Setup SQLite database
+    db_filename = 'bandcamp_mailing_lists.db'
+    db_path = os.path.join(reports_dir, db_filename)
+    db_path = sanitize_path(db_path)
+
+    logger(f'Setting up SQLite database: {os.path.basename(db_path)}', "INFO")
+    create_mailing_database_schema(db_path)
+
     write_consolidated_csv(
         consolidated_path, full_expected_headers, email_data)
+
+    # Insert data into database
+    db_inserted = insert_mailing_data(
+        db_path, email_data, [os.path.basename(f) for f in csv_files])
 
     unique_emails = len(email_data)
     total_purchases = sum(data['total_purchases']
                           for data in email_data.values())
 
-    print('Consolidation complete!')
-    print(f'  Files processed: {files_processed} of {len(csv_files)}')
-    print(f'  Unique email addresses: {unique_emails}')
-    print(f'  Total purchases: {total_purchases}')
-    print(f'  Output file: {os.path.basename(consolidated_path)}')
+    logger('Consolidation complete!', "INFO")
+    logger(f'  Files processed: {files_processed} of {len(csv_files)}', "INFO")
+    logger(f'  Unique email addresses: {unique_emails}', "INFO")
+    logger(f'  Total purchases: {total_purchases}', "INFO")
+    logger(f'  Output file: {os.path.basename(consolidated_path)}', "INFO")
+    logger(f'  Database: {os.path.basename(db_path)}', "INFO")
+    logger(f'  Database rows inserted: {db_inserted}', "INFO")
 
-    print('Generating PDF report...')
-    return generate_pdf_report(consolidated_path)
-
-
-def generate_pdf_report(csv_path: str) -> None:
-    """Generates a PDF report from the consolidated mailing list CSV file."""
-    try:
-        from reportlab.lib.pagesizes import landscape, A4
-        from reportlab.platypus import SimpleDocTemplate, Table, Paragraph, Spacer
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-        from reportlab.lib.units import inch
-    except ImportError:
-        print('PDF generation requires reportlab. Install with: pip install reportlab')
-        return
-
-    try:
-        pdf_path = sanitize_path(csv_path.replace('.csv', '.pdf'))
-
-        table_data = []
-        total_rows = 0
-        total_purchases = 0
-        countries = {}
-
-        with open(csv_path, 'r', newline='', encoding='utf-8') as csvfile:
-            reader = csv.reader(csvfile)
-            header = next(reader)
-            table_data.append(header)
-
-            for row in reader:
-                if any(cell.strip() for cell in row):
-                    table_data.append(row)
-                    total_rows += 1
-
-                    try:
-                        purchases = int(row[7]) if row[7].strip() else 0
-                        total_purchases += purchases
-                    except ValueError:
-                        pass
-
-                    country = row[5].strip() if len(row) > 5 else 'Unknown'
-                    countries[country] = countries.get(country, 0) + 1
-
-        if total_rows == 0:
-            print('WARNING: No data rows found in CSV file.')
-            return
-
-        doc = SimpleDocTemplate(pdf_path, pagesize=landscape(
-            A4), rightMargin=0.5*inch, leftMargin=0.5*inch, topMargin=0.5*inch, bottomMargin=0.5*inch)
-
-        styles = getSampleStyleSheet()
-        title_style = ParagraphStyle(
-            'CustomTitle', parent=styles['Heading1'], fontSize=12, spaceAfter=20, alignment=1)
-
-        story = []
-        title_text = f'Bandcamp Mailing List Report - {datetime.now().strftime("%B %Y")}'
-        story.append(Paragraph(title_text, title_style))
-        story.append(Spacer(1, 12))
-
-        table = Table(table_data, repeatRows=1)
-        table.setStyle(get_mailing_list_table_style())
-        story.append(table)
-
-        story.append(Spacer(1, 20))
-
-        summary_data = [['Summary', '']]
-        summary_data.append(['Total Email Addresses', str(total_rows)])
-        summary_data.append(['Total Purchases', str(total_purchases)])
-
-        if countries:
-            summary_data.append(['', ''])
-            summary_data.append(['Top Countries', ''])
-            sorted_countries = sorted(
-                countries.items(), key=lambda x: x[1], reverse=True)[:5]
-            for country, count in sorted_countries:
-                summary_data.append([country, str(count)])
-
-        summary_table = Table(summary_data)
-        summary_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.darkgrey),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ('ALIGN', (1, 1), (1, -1), 'RIGHT'),
-        ]))
-
-        story.append(summary_table)
-        doc.build(story)
-
-        print(f'PDF report generated: {os.path.basename(pdf_path)}')
-        return os.path.basename(pdf_path)
-
-    except Exception as e:
-        print(f'ERROR: Failed to generate PDF report: {e}')
-        if CONFIG['VERBOSE'] >= 2:
-            import traceback
-            traceback.print_exc()
-
-
-def get_mailing_list_table_style() -> TableStyle:
-    """Generates table style for mailing list data."""
-    style_commands = [
-        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 8),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 1), (-1, -1), 7),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.beige, colors.lightgrey]),
-        ('ALIGN', (7, 1), (7, -1), 'RIGHT'),
-    ]
-    return TableStyle(style_commands)
+    return consolidated_path
 
 
 if __name__ == '__main__':

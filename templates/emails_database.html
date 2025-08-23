@@ -1,0 +1,487 @@
+{% extends "base.html" %}
+
+{% block title %}Mailing Database - Bandcamp Utilities{% endblock %}
+{% block page_title %}Mailing Database{% endblock %}
+{% block page_description %}View mailing list data stored in the SQLite database{% endblock %}
+
+{% block extra_css %}
+.table-container {
+    overflow-x: auto;
+    margin-top: 20px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: white;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 1000px;
+}
+
+th, td {
+    padding: 12px 8px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+    font-size: 14px;
+}
+
+th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    color: #2c3e50;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border-bottom: 2px solid #dee2e6;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.2s;
+}
+
+th:hover {
+    background-color: #e9ecef;
+}
+
+th.sortable::after {
+    content: ' ↕';
+    color: #6c757d;
+    font-size: 12px;
+    margin-left: 5px;
+}
+
+th.sort-asc::after {
+    content: ' ↑';
+    color: #007bff;
+}
+
+th.sort-desc::after {
+    content: ' ↓';
+    color: #007bff;
+}
+
+tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+tr:hover {
+    background-color: #e3f2fd;
+}
+
+.email {
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+}
+
+.artist-name {
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.date {
+    font-size: 12px;
+    color: #666;
+}
+
+.summary {
+    margin-bottom: 30px;
+    padding: 20px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #28a745;
+}
+
+.summary h3 {
+    margin-top: 0;
+    color: #2c3e50;
+    margin-bottom: 15px;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.stat-item {
+    background: white;
+    padding: 15px;
+    border-radius: 6px;
+    border-left: 3px solid #9b59b6;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.stat-label {
+    font-size: 12px;
+    color: #666;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+}
+
+.stat-value {
+    font-size: 18px;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.db-info {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    border-left: 4px solid #9b59b6;
+}
+
+.error {
+    background-color: #f8d7da;
+    color: #721c24;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    border-left: 4px solid #dc3545;
+}
+
+.email-domain {
+    font-size: 11px;
+    color: #888;
+    font-style: italic;
+}
+
+.export-actions {
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+.copy-emails-btn {
+    background: linear-gradient(135deg, #9b59b6, #8e44ad);
+    color: white;
+    border: none;
+    padding: 15px 30px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 4px 15px rgba(155, 89, 182, 0.3);
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.copy-emails-btn:hover {
+    background: linear-gradient(135deg, #8e44ad, #7d3c98);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(155, 89, 182, 0.4);
+}
+
+.copy-emails-btn:active {
+    transform: translateY(0);
+}
+
+.btn-icon {
+    font-size: 18px;
+}
+
+.btn-count {
+    font-size: 14px;
+    opacity: 0.9;
+    font-weight: normal;
+}
+
+.copy-status {
+    margin-top: 15px;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-weight: 500;
+    transition: all 0.3s;
+}
+
+.copy-status.success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.copy-status.error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.hidden {
+    display: none;
+}
+{% endblock %}
+
+{% block content %}
+{% if error %}
+    <div class="error">
+        <strong>Error:</strong> {{ error }}
+    </div>
+{% endif %}
+
+{% if db_name %}
+    <div class="db-info">
+        <strong>Database:</strong> {{ db_name }}
+    </div>
+{% endif %}
+
+{% if data %}
+            <div class="summary">
+                <h3>Summary Statistics</h3>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-label">Total Records</div>
+                        <div class="stat-value">{{ data|length }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Unique Emails</div>
+                        <div class="stat-value">{{ data|map(attribute='email')|unique|list|length }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Total Purchases</div>
+                        <div class="stat-value">{{ data|map(attribute='num_purchases')|sum }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Unique Countries</div>
+                        <div class="stat-value">{{ data|map(attribute='country')|unique|list|length }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Average Purchases per Customer</div>
+                        <div class="stat-value">{{ "%.1f"|format((data|map(attribute='num_purchases')|sum) / (data|map(attribute='email')|unique|list|length) if data|map(attribute='email')|unique|list|length > 0 else 0) }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="export-actions">
+                <button type="button" id="copyEmailsBtn" class="copy-emails-btn">
+                    <span class="btn-icon">📧</span>
+                    Copy All Emails for Mailchimp
+                    <span class="btn-count">({{ data|map(attribute='email')|unique|list|length }} unique emails)</span>
+                </button>
+                <div id="copyStatus" class="copy-status hidden"></div>
+            </div>
+
+            <div class="table-container">
+                <table id="mailingTable">
+                    <thead>
+                        <tr>
+                            <th class="sortable" data-column="email" data-type="text">Email</th>
+                            <th class="sortable" data-column="fullname" data-type="text">Full Name</th>
+                            <th class="sortable" data-column="firstname" data-type="text">First Name</th>
+                            <th class="sortable" data-column="lastname" data-type="text">Last Name</th>
+                            <th class="sortable" data-column="country" data-type="text">Country</th>
+                            <th class="sortable" data-column="postal_code" data-type="text">Postal Code</th>
+                            <th class="sortable number" data-column="num_purchases" data-type="number">Purchases</th>
+                            <th class="sortable number" data-column="total_purchases" data-type="number">Total Purchases</th>
+                            <th class="sortable date" data-column="date_added" data-type="date">Date Added</th>
+                            <th class="sortable date" data-column="import_date" data-type="date">Imported</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        {% for row in data %}
+                        <tr>
+                            <td class="email"><strong>{{ row.email }}</strong></td>
+                            <td>{{ row.fullname or '' }}</td>
+                            <td>{{ row.firstname or '' }}</td>
+                            <td>{{ row.lastname or '' }}</td>
+                            <td>{{ row.country or '' }}</td>
+                            <td>{{ row.postal_code or '' }}</td>
+                            <td class="number">{{ row.num_purchases or 0 }}</td>
+                            <td class="number">{{ row.total_purchases or 0 }}</td>
+                            <td class="date">{{ row.date_added or '' }}</td>
+                            <td class="date">{{ row.import_date or '' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+        // Embed the data as JSON for JavaScript manipulation
+        const tableData = {{ data|tojson if data else '[]' }};
+        let currentSort = { column: null, direction: 'asc' };
+
+        function renderTable(data) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+            
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="email"><strong>${escapeHtml(row.email || '')}</strong></td>
+                    <td>${escapeHtml(row.fullname || '')}</td>
+                    <td>${escapeHtml(row.firstname || '')}</td>
+                    <td>${escapeHtml(row.lastname || '')}</td>
+                    <td>${escapeHtml(row.country || '')}</td>
+                    <td>${escapeHtml(row.postal_code || '')}</td>
+                    <td class="number">${row.num_purchases || 0}</td>
+                    <td class="number">${row.total_purchases || 0}</td>
+                    <td class="date">${escapeHtml(row.date_added || '')}</td>
+                    <td class="date">${escapeHtml(row.import_date || '')}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function escapeHtml(unsafe) {
+            return (unsafe || '')
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function sortTable(column, type) {
+            let sortedData;
+            
+            if (currentSort.column === column) {
+                // Toggle direction if same column
+                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                // New column, start with ascending
+                currentSort.column = column;
+                currentSort.direction = 'asc';
+            }
+
+            sortedData = [...tableData].sort((a, b) => {
+                let aVal = a[column] || '';
+                let bVal = b[column] || '';
+
+                // Handle different data types
+                if (type === 'number') {
+                    aVal = parseFloat(aVal) || 0;
+                    bVal = parseFloat(bVal) || 0;
+                } else if (type === 'date') {
+                    aVal = new Date(aVal) || new Date(0);
+                    bVal = new Date(bVal) || new Date(0);
+                } else {
+                    // Text comparison - case insensitive
+                    aVal = String(aVal).toLowerCase();
+                    bVal = String(bVal).toLowerCase();
+                }
+
+                let comparison = 0;
+                if (aVal > bVal) comparison = 1;
+                if (aVal < bVal) comparison = -1;
+
+                return currentSort.direction === 'desc' ? -comparison : comparison;
+            });
+
+            // Update header indicators
+            document.querySelectorAll('th').forEach(th => {
+                th.classList.remove('sort-asc', 'sort-desc');
+            });
+
+            const currentHeader = document.querySelector(`th[data-column="${column}"]`);
+            if (currentHeader) {
+                currentHeader.classList.add(currentSort.direction === 'asc' ? 'sort-asc' : 'sort-desc');
+            }
+
+            renderTable(sortedData);
+        }
+
+        // Add click listeners to sortable headers
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('th.sortable').forEach(header => {
+                header.addEventListener('click', function() {
+                    const column = this.getAttribute('data-column');
+                    const type = this.getAttribute('data-type');
+                    sortTable(column, type);
+                });
+            });
+
+            // Initial render
+            if (tableData.length > 0) {
+                renderTable(tableData);
+            }
+
+            // Copy emails functionality
+            const copyEmailsBtn = document.getElementById('copyEmailsBtn');
+            const copyStatus = document.getElementById('copyStatus');
+
+            if (copyEmailsBtn) {
+                copyEmailsBtn.addEventListener('click', function() {
+                    copyEmailsToClipboard();
+                });
+            }
+        });
+
+        function copyEmailsToClipboard() {
+            try {
+                // Extract unique emails from the data
+                const uniqueEmails = [...new Set(tableData.map(row => row.email).filter(email => email && email.trim()))];
+                
+                if (uniqueEmails.length === 0) {
+                    showCopyStatus('No emails found to copy', 'error');
+                    return;
+                }
+
+                // Format emails for Mailchimp (one per line)
+                const emailList = uniqueEmails.join('\n');
+
+                // Copy to clipboard using the modern Clipboard API
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(emailList).then(function() {
+                        showCopyStatus(`✓ Copied ${uniqueEmails.length} unique emails to clipboard!`, 'success');
+                    }).catch(function(err) {
+                        console.error('Failed to copy emails: ', err);
+                        fallbackCopyToClipboard(emailList, uniqueEmails.length);
+                    });
+                } else {
+                    // Fallback for older browsers or non-HTTPS
+                    fallbackCopyToClipboard(emailList, uniqueEmails.length);
+                }
+            } catch (error) {
+                console.error('Error copying emails:', error);
+                showCopyStatus('Failed to copy emails. Please try again.', 'error');
+            }
+        }
+
+        function fallbackCopyToClipboard(text, count) {
+            try {
+                // Create a temporary textarea element
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                textarea.style.left = '-999999px';
+                document.body.appendChild(textarea);
+                
+                // Select and copy the text
+                textarea.select();
+                textarea.setSelectionRange(0, 99999); // For mobile devices
+                
+                const successful = document.execCommand('copy');
+                document.body.removeChild(textarea);
+                
+                if (successful) {
+                    showCopyStatus(`✓ Copied ${count} unique emails to clipboard!`, 'success');
+                } else {
+                    showCopyStatus('Copy failed. Please select and copy the emails manually.', 'error');
+                }
+            } catch (error) {
+                console.error('Fallback copy failed:', error);
+                showCopyStatus('Copy not supported. Please select and copy the emails manually.', 'error');
+            }
+        }
+
+        function showCopyStatus(message, type) {
+            const copyStatus = document.getElementById('copyStatus');
+            if (copyStatus) {
+                copyStatus.textContent = message;
+                copyStatus.className = `copy-status ${type}`;
+                copyStatus.classList.remove('hidden');
+                
+                // Hide the message after 5 seconds
+                setTimeout(() => {
+                    copyStatus.classList.add('hidden');
+                }, 5000);
+            }
+        }
+    </script>
+{% endblock %}

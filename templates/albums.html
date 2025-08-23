@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}Albums - Bandcamp Utilities{% endblock %}
+{% block page_title %}Albums{% endblock %}
+{% block page_description %}Browse your bandcamp collection{% endblock %}
+
+{% block extra_css %}
+.album-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 30px;
+    margin-top: 30px;
+    justify-content: center;
+}
+.album-card {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    padding: 0;
+    width: var(--cover-size, 180px);
+    height: var(--cover-size, 180px);
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    transition: box-shadow 0.2s, width 0.2s, height 0.2s;
+}
+.album-card:hover {
+    box-shadow: 0 8px 25px rgba(155,89,182,0.15);
+}
+.album-cover {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 10px;
+    display: block;
+}
+.album-info {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    background: rgba(44,62,80,0.92);
+    color: #fff;
+    padding: 18px 10px 10px 10px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    border-radius: 0 0 10px 10px;
+    font-size: 1em;
+    font-weight: 600;
+    pointer-events: none;
+}
+.album-card:hover .album-info {
+    opacity: 1;
+}
+.album-title, .artist-name {
+    margin: 0;
+    padding: 0;
+    color: #fff;
+    font-size: 1em;
+    font-weight: 600;
+}
+.album-title {
+    margin-bottom: 4px;
+}
+.artist-name {
+    font-size: 0.95em;
+    opacity: 0.85;
+}
+.album-size-selector {
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    justify-content: center;
+}
+.album-size-slider {
+    width: 220px;
+    accent-color: #8e44ad;
+    background: transparent;
+    position: relative;
+}
+{% endblock %}
+
+{% block content %}
+<h2>Albums</h2>
+<div class="album-size-selector">
+    <span style="font-weight:600;">Cover Size:</span>
+    <input type="range" id="coverSizeSlider" class="album-size-slider" min="1" max="4" value="2">
+</div>
+<div style="margin-bottom: 24px; text-align:center;">
+    <input type="text" id="albumSearch" placeholder="Search albums or artists..." style="width:320px; padding:10px; border-radius:6px; border:1px solid #ccc; font-size:1em;">
+</div>
+<div class="album-list" id="albumList">
+    {% for artist, albums in albums_by_artist.items() %}
+        {% for album in albums %}
+        <div class="album-card" data-artist="{{ artist|lower }}" data-album="{{ album|lower }}">
+            <img src="/albums/extracted/{{ artist }}/{{ album }}/cover.jpg" alt="Cover" class="album-cover">
+            <div class="album-info">
+                <div class="album-title">{{ album }}</div>
+                <div class="artist-name">{{ artist }}</div>
+            </div>
+        </div>
+        {% endfor %}
+    {% endfor %}
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+const albumList = document.getElementById('albumList');
+const slider = document.getElementById('coverSizeSlider');
+const searchInput = document.getElementById('albumSearch');
+const sizeSteps = [120, 180, 240, 320];
+slider.addEventListener('input', function() {
+    const size = sizeSteps[slider.value - 1] + 'px';
+    albumList.style.setProperty('--cover-size', size);
+});
+// Set default size
+albumList.style.setProperty('--cover-size', sizeSteps[slider.value - 1] + 'px');
+
+let searchTimeout;
+searchInput.addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        const query = searchInput.value.trim().toLowerCase();
+        const cards = albumList.querySelectorAll('.album-card');
+        cards.forEach(card => {
+            const artist = card.getAttribute('data-artist');
+            const album = card.getAttribute('data-album');
+            if (artist.includes(query) || album.includes(query)) {
+                card.style.display = '';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }, 300);
+});
+</script>
+{% endblock %}

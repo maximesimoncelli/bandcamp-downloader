@@ -1,0 +1,747 @@
+{% extends "base.html" %}
+
+{% block title %}Artists Overview - Bandcamp Utilities{% endblock %}
+{% block page_title %}Artists Overview{% endblock %}
+{% block page_description %}Summary cards for all your Bandcamp artist pages{% endblock %}
+
+{% block extra_css %}
+.artists-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 25px;
+    margin-top: 30px;
+}
+
+.artist-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    transition: all 0.3s ease;
+    border: 1px solid #e9ecef;
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+}
+
+.artist-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    text-decoration: none;
+    color: inherit;
+}
+
+.artist-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+}
+
+.artist-header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.1);
+    transform: rotate(45deg);
+    transition: all 0.3s ease;
+}
+
+.artist-card:hover .artist-header::before {
+    top: -40%;
+    right: -40%;
+}
+
+.artist-name {
+    font-size: 1.4em;
+    font-weight: 700;
+    margin: 0 0 8px 0;
+    position: relative;
+    z-index: 1;
+}
+
+.artist-id {
+    font-size: 0.9em;
+    opacity: 0.8;
+    position: relative;
+    z-index: 1;
+}
+
+.artist-body {
+    padding: 20px;
+}
+
+.contact-info {
+    margin-bottom: 20px;
+}
+
+.contact-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+    font-size: 0.9em;
+}
+
+.contact-icon {
+    width: 20px;
+    margin-right: 10px;
+    text-align: center;
+}
+
+.contact-value {
+    color: #495057;
+    word-break: break-all;
+}
+
+.stats-section {
+    margin-bottom: 20px;
+}
+
+.stats-title {
+    font-size: 0.9em;
+    font-weight: 600;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 3px solid #007bff;
+}
+
+.stat-value {
+    font-size: 1.2em;
+    font-weight: 700;
+    color: #2c3e50;
+    display: block;
+}
+
+.stat-label {
+    font-size: 0.8em;
+    color: #6c757d;
+    margin-top: 4px;
+}
+
+.revenue-stats .stat-item {
+    border-left-color: #28a745;
+}
+
+.mailing-stats .stat-item {
+    border-left-color: #dc3545;
+}
+
+.actions-section {
+    border-top: 1px solid #e9ecef;
+    padding-top: 15px;
+}
+
+.action-links {
+    display: flex;
+    gap: 10px;
+}
+
+.action-btn {
+    flex: 1;
+    padding: 10px 16px;
+    border-radius: 6px;
+    text-decoration: none;
+    text-align: center;
+    font-size: 0.9em;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    border: 2px solid;
+}
+
+.btn-primary {
+    background: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+.btn-primary:hover {
+    background: #0056b3;
+    border-color: #0056b3;
+    color: white;
+    text-decoration: none;
+}
+
+.btn-secondary {
+    background: transparent;
+    color: #6c757d;
+    border-color: #6c757d;
+}
+
+.btn-secondary:hover {
+    background: #6c757d;
+    color: white;
+    text-decoration: none;
+}
+
+.no-data {
+    text-align: center;
+    color: #6c757d;
+    font-style: italic;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    margin: 20px 0;
+}
+
+.summary-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 25px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+.summary-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.summary-stat {
+    text-align: center;
+}
+
+.summary-stat-value {
+    font-size: 2em;
+    font-weight: 700;
+    display: block;
+}
+
+.summary-stat-label {
+    font-size: 0.9em;
+    opacity: 0.9;
+    margin-top: 5px;
+}
+
+/* View Toggle Styles */
+.view-toggle {
+    display: flex;
+    justify-content: center;
+    margin: 20px 0;
+    gap: 10px;
+}
+
+.toggle-btn {
+    padding: 10px 20px;
+    border: 2px solid #007bff;
+    background: transparent;
+    color: #007bff;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.toggle-btn.active {
+    background: #007bff;
+    color: white;
+}
+
+.toggle-btn:hover {
+    background: #007bff;
+    color: white;
+}
+
+/* Table View Styles */
+.artists-table {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    margin-top: 20px;
+    display: none;
+}
+
+.artists-table.active {
+    display: block;
+}
+
+.artists-table table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.artists-table th,
+.artists-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.artists-table th {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-weight: 600;
+    font-size: 0.9em;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    transition: background 0.3s ease;
+}
+
+.artists-table th:hover {
+    background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+}
+
+.artists-table th.sortable::after {
+    content: ' ↕️';
+    font-size: 0.8em;
+    opacity: 0.7;
+}
+
+.artists-table th.sort-asc::after {
+    content: ' ↑';
+    opacity: 1;
+}
+
+.artists-table th.sort-desc::after {
+    content: ' ↓';
+    opacity: 1;
+}
+
+.artists-table tbody tr:hover {
+    background: #f8f9fa;
+    cursor: pointer;
+}
+
+.artist-name-cell {
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.stats-cell {
+    font-size: 0.85em;
+    color: #6c757d;
+}
+
+.actions-cell {
+    white-space: nowrap;
+}
+
+.table-action-btn {
+    display: inline-block;
+    padding: 4px 8px;
+    margin: 0 2px;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 0.8em;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.table-btn-primary {
+    background: #007bff;
+    color: white;
+}
+
+.table-btn-secondary {
+    background: #6c757d;
+    color: white;
+}
+
+.table-action-btn:hover {
+    transform: scale(1.05);
+    text-decoration: none;
+}
+
+.revenue-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 5px;
+}
+
+.revenue-indicator.has-data {
+    background: #28a745;
+}
+
+.revenue-indicator.no-data {
+    background: #dc3545;
+}
+
+@media (max-width: 768px) {
+    .artists-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .action-links {
+        flex-direction: column;
+    }
+    
+    .summary-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .view-toggle {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .toggle-btn {
+        width: 200px;
+    }
+    
+    .artists-table {
+        overflow-x: auto;
+    }
+    
+    .artists-table table {
+        min-width: 600px;
+    }
+}
+{% endblock %}
+
+{% block content %}
+{% if artists %}
+    <div class="summary-header">
+        <h2>🎵 Your Bandcamp Artists</h2>
+        <p>Manage and overview all your Bandcamp artist pages from one place</p>
+        <div class="summary-stats">
+            <div class="summary-stat">
+                <span class="summary-stat-value">{{ artists|length }}</span>
+                <div class="summary-stat-label">Total Artists</div>
+            </div>
+            <div class="summary-stat">
+                <span class="summary-stat-value">{{ artists|selectattr('revenue_stats')|list|length }}</span>
+                <div class="summary-stat-label">With Revenue Data</div>
+            </div>
+            <div class="summary-stat">
+                <span class="summary-stat-value">{{ artists|selectattr('mailing_stats')|list|length }}</span>
+                <div class="summary-stat-label">With Mailing Data</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Toggle Controls -->
+    <div class="view-toggle">
+        <button class="toggle-btn active" id="cardViewBtn" onclick="switchView('card')">
+            🎴 Card View
+        </button>
+        <button class="toggle-btn" id="tableViewBtn" onclick="switchView('table')">
+            📊 Table View
+        </button>
+    </div>
+
+    <!-- Card View (existing) -->
+    <div class="artists-grid" id="cardView">
+        {% for artist in artists %}
+        <a href="/artist/{{ artist.name }}" class="artist-card">
+            <div class="artist-header">
+                <h3 class="artist-name">{{ artist.display_name }}</h3>
+                <div class="artist-id">ID: {{ artist.band_id or 'Not available' }}</div>
+            </div>
+            
+            <div class="artist-body">
+                <div class="contact-info">
+                    <div class="contact-item">
+                        <span class="contact-icon">📧</span>
+                        <span class="contact-value">{{ artist.email }}</span>
+                    </div>
+                    <div class="contact-item">
+                        <span class="contact-icon">🔗</span>
+                        <span class="contact-value">{{ artist.bandcamp_url }}</span>
+                    </div>
+                </div>
+
+                {% if artist.revenue_stats %}
+                <div class="stats-section revenue-stats">
+                    <div class="stats-title">Revenue Statistics</div>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-value">${{ "%.0f"|format(artist.revenue_stats.total_net) }}</span>
+                            <div class="stat-label">Net Revenue</div>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">{{ artist.revenue_stats.total_transactions }}</span>
+                            <div class="stat-label">Transactions</div>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">${{ "%.0f"|format(artist.revenue_stats.total_gross) }}</span>
+                            <div class="stat-label">Gross Revenue</div>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">{{ artist.revenue_stats.total_quantity }}</span>
+                            <div class="stat-label">Items Sold</div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if artist.mailing_stats %}
+                <div class="stats-section mailing-stats">
+                    <div class="stats-title">Mailing Statistics</div>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-value">{{ artist.mailing_stats.unique_subscribers }}</span>
+                            <div class="stat-label">Subscribers</div>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">{{ artist.mailing_stats.total_purchases }}</span>
+                            <div class="stat-label">Total Purchases</div>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">{{ artist.mailing_stats.countries }}</span>
+                            <div class="stat-label">Countries</div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if not artist.revenue_stats and not artist.mailing_stats %}
+                <div class="no-data">
+                    📊 No database statistics available yet.<br>
+                    Run the utilities to collect data for this artist.
+                </div>
+                {% endif %}
+
+                <div class="actions-section">
+                    <div class="action-links">
+                        <span class="action-btn btn-primary" onclick="event.preventDefault(); event.stopPropagation(); window.open('{{ artist.bandcamp_url }}', '_blank');">
+                            🎵 Visit Page
+                        </span>
+                        <span class="action-btn btn-secondary" onclick="event.preventDefault(); event.stopPropagation(); window.open('{{ artist.bandcamp_tools_url }}', '_blank');">
+                            🛠️ Tools
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+
+    <!-- Table View -->
+    <div class="artists-table" id="tableView">
+        <table>
+            <thead>
+                <tr>
+                    <th class="sortable" data-sort="name">Artist</th>
+                    <th class="sortable" data-sort="email">Email</th>
+                    <th class="sortable" data-sort="gross">Gross Revenue</th>
+                    <th class="sortable" data-sort="net">Net Revenue</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for artist in artists %}
+                <tr onclick="window.location.href='/artist/{{ artist.name }}'" data-artist="{{ artist.name }}">
+                    <td class="artist-name-cell">
+                        <span class="revenue-indicator {% if artist.revenue_stats or artist.mailing_stats %}has-data{% else %}no-data{% endif %}"></span>
+                        {{ artist.display_name }}
+                    </td>
+                    <td class="stats-cell">{{ artist.email }}</td>
+                    <td class="stats-cell" data-gross="{{ artist.revenue_stats.total_gross if artist.revenue_stats else 0 }}">
+                        {% if artist.revenue_stats %}
+                            ${{ "%.0f"|format(artist.revenue_stats.total_gross) }} 
+                            <small>({{ artist.revenue_stats.total_transactions }} trans.)</small>
+                        {% else %}
+                            <span style="color: #ccc;">No data</span>
+                        {% endif %}
+                    </td>
+                    <td class="stats-cell" data-net="{{ artist.revenue_stats.total_net if artist.revenue_stats else 0 }}">
+                        {% if artist.revenue_stats %}
+                            ${{ "%.0f"|format(artist.revenue_stats.total_net) }} 
+                            <small>({{ artist.revenue_stats.total_transactions }} trans.)</small>
+                        {% else %}
+                            <span style="color: #ccc;">No data</span>
+                        {% endif %}
+                    </td>
+                    <td class="actions-cell">
+                        <a href="{{ artist.bandcamp_url }}" target="_blank" class="table-action-btn table-btn-primary" onclick="event.stopPropagation();">
+                            🎵 Visit
+                        </a>
+                        <a href="{{ artist.bandcamp_tools_url }}" target="_blank" class="table-action-btn table-btn-secondary" onclick="event.stopPropagation();">
+                            🛠️ Tools
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <div class="no-data">
+        <h3>No Artists Found</h3>
+        <p>Please add your artists in the <code>artists.py</code> file to see them here.</p>
+        <p>Format: <code>artists = [('artist_name', band_id), ...]</code></p>
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Global variables for sorting
+    let currentSort = { column: null, direction: 'asc' };
+    
+    // View switching functionality
+    function switchView(viewType) {
+        const cardView = document.getElementById('cardView');
+        const tableView = document.getElementById('tableView');
+        const cardBtn = document.getElementById('cardViewBtn');
+        const tableBtn = document.getElementById('tableViewBtn');
+        
+        if (viewType === 'card') {
+            cardView.style.display = 'grid';
+            tableView.classList.remove('active');
+            cardBtn.classList.add('active');
+            tableBtn.classList.remove('active');
+            localStorage.setItem('artistsViewPreference', 'card');
+        } else if (viewType === 'table') {
+            cardView.style.display = 'none';
+            tableView.classList.add('active');
+            cardBtn.classList.remove('active');
+            tableBtn.classList.add('active');
+            localStorage.setItem('artistsViewPreference', 'table');
+        }
+    }
+    
+    // Table sorting functionality
+    function sortTable(column) {
+        const table = document.querySelector('.artists-table table tbody');
+        const rows = Array.from(table.querySelectorAll('tr'));
+        
+        // Determine sort direction
+        if (currentSort.column === column) {
+            currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+        } else {
+            currentSort.column = column;
+            currentSort.direction = 'asc';
+        }
+        
+        // Update header indicators
+        document.querySelectorAll('.artists-table th').forEach(th => {
+            th.classList.remove('sort-asc', 'sort-desc');
+        });
+        
+        const currentHeader = document.querySelector(`[data-sort="${column}"]`);
+        currentHeader.classList.add(currentSort.direction === 'asc' ? 'sort-asc' : 'sort-desc');
+        
+        // Sort the rows
+        rows.sort((a, b) => {
+            let aValue, bValue;
+            
+            switch (column) {
+                case 'name':
+                    aValue = a.querySelector('.artist-name-cell').textContent.trim();
+                    bValue = b.querySelector('.artist-name-cell').textContent.trim();
+                    break;
+                case 'email':
+                    aValue = a.querySelectorAll('td')[1].textContent.trim();
+                    bValue = b.querySelectorAll('td')[1].textContent.trim();
+                    break;
+                case 'gross':
+                    aValue = parseFloat(a.querySelectorAll('td')[2].getAttribute('data-gross')) || 0;
+                    bValue = parseFloat(b.querySelectorAll('td')[2].getAttribute('data-gross')) || 0;
+                    break;
+                case 'net':
+                    aValue = parseFloat(a.querySelectorAll('td')[3].getAttribute('data-net')) || 0;
+                    bValue = parseFloat(b.querySelectorAll('td')[3].getAttribute('data-net')) || 0;
+                    break;
+                default:
+                    return 0;
+            }
+            
+            // Handle numeric vs string comparison
+            if (typeof aValue === 'number' && typeof bValue === 'number') {
+                return currentSort.direction === 'asc' ? aValue - bValue : bValue - aValue;
+            } else {
+                const comparison = aValue.toString().localeCompare(bValue.toString());
+                return currentSort.direction === 'asc' ? comparison : -comparison;
+            }
+        });
+        
+        // Reorder the table rows
+        rows.forEach(row => table.appendChild(row));
+    }
+    
+    // Load saved view preference or default to card view
+    document.addEventListener('DOMContentLoaded', function() {
+        const savedView = localStorage.getItem('artistsViewPreference') || 'card';
+        switchView(savedView);
+        
+        console.log('Artists Overview loaded with {{ artists|length }} artists');
+        
+        // Add sorting event listeners to table headers
+        document.querySelectorAll('.artists-table th.sortable').forEach(header => {
+            header.addEventListener('click', function() {
+                const sortColumn = this.getAttribute('data-sort');
+                sortTable(sortColumn);
+            });
+        });
+        
+        // Add click-to-copy functionality for email addresses
+        document.querySelectorAll('.contact-value').forEach(function(element) {
+            if (element.textContent.includes('@')) {
+                element.style.cursor = 'pointer';
+                element.title = 'Click to copy email';
+                element.addEventListener('click', function() {
+                    navigator.clipboard.writeText(element.textContent.trim()).then(function() {
+                        // Visual feedback
+                        const originalText = element.textContent;
+                        element.textContent = 'Copied!';
+                        element.style.color = '#28a745';
+                        setTimeout(function() {
+                            element.textContent = originalText;
+                            element.style.color = '';
+                        }, 1000);
+                    }).catch(function() {
+                        console.error('Failed to copy email');
+                    });
+                });
+            }
+        });
+        
+        // Add click-to-copy functionality for table email cells
+        document.querySelectorAll('.artists-table .stats-cell').forEach(function(element) {
+            if (element.textContent.includes('@')) {
+                element.style.cursor = 'pointer';
+                element.title = 'Click to copy email';
+                element.addEventListener('click', function() {
+                    navigator.clipboard.writeText(element.textContent.trim()).then(function() {
+                        // Visual feedback
+                        const originalText = element.textContent;
+                        const originalColor = element.style.color;
+                        element.textContent = 'Copied!';
+                        element.style.color = '#28a745';
+                        setTimeout(function() {
+                            element.textContent = originalText;
+                            element.style.color = originalColor;
+                        }, 1000);
+                    }).catch(function() {
+                        console.error('Failed to copy email');
+                    });
+                });
+            }
+        });
+    });
+</script>
+{% endblock %}

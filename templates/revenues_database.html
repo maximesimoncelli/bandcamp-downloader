@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+
+{% block title %}Revenue Database - Bandcamp Utilities{% endblock %}
+{% block page_title %}Revenue Database{% endblock %}
+{% block page_description %}View revenue reports data stored in the SQLite database{% endblock %}
+
+{% block extra_css %}
+.table-container {
+    overflow-x: auto;
+    margin-top: 20px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: white;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 1200px;
+}
+
+th, td {
+    padding: 12px 8px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+    font-size: 14px;
+}
+
+th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    color: #2c3e50;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border-bottom: 2px solid #dee2e6;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.2s;
+}
+
+th:hover {
+    background-color: #e9ecef;
+}
+
+th.sortable::after {
+    content: ' ↕';
+    color: #6c757d;
+    font-size: 12px;
+    margin-left: 5px;
+}
+
+th.sort-asc::after {
+    content: ' ↑';
+    color: #007bff;
+}
+
+th.sort-desc::after {
+    content: ' ↓';
+    color: #007bff;
+}
+
+tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+tr:hover {
+    background-color: #e3f2fd;
+}
+
+.currency {
+    text-align: right;
+    font-family: 'Courier New', monospace;
+}
+
+.number {
+    text-align: right;
+}
+
+.date {
+    font-size: 12px;
+    color: #666;
+}
+
+.summary {
+    margin-bottom: 30px;
+    padding: 20px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #28a745;
+}
+
+.summary h3 {
+    margin-top: 0;
+    color: #2c3e50;
+    margin-bottom: 15px;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.stat-item {
+    background: white;
+    padding: 15px;
+    border-radius: 6px;
+    border-left: 3px solid #3498db;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.stat-label {
+    font-size: 12px;
+    color: #666;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+}
+
+.stat-value {
+    font-size: 18px;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.db-info {
+    background-color: #e8f4f8;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    border-left: 4px solid #3498db;
+}
+
+.error {
+    background-color: #f8d7da;
+    color: #721c24;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    border-left: 4px solid #dc3545;
+}
+{% endblock %}
+
+{% block content %}
+{% if error %}
+    <div class="error">
+        <strong>Error:</strong> {{ error }}
+    </div>
+{% endif %}
+
+{% if db_name %}
+    <div class="db-info">
+        <strong>Database:</strong> {{ db_name }}
+    </div>
+{% endif %}
+
+{% if data %}
+    <div class="summary">
+        <h3>Summary Statistics</h3>
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-label">Total Records</div>
+                <div class="stat-value">{{ data|length }}</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Total Gross Revenue</div>
+                <div class="stat-value">${{ "%.2f"|format(data|map(attribute='gross_revenue')|sum) }}</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Total Net Revenue</div>
+                <div class="stat-value">${{ "%.2f"|format(data|map(attribute='net_revenue')|sum) }}</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Unique Artists</div>
+                <div class="stat-value">{{ data|map(attribute='artist_name')|unique|list|length }}</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Total Quantity Sold</div>
+                <div class="stat-value">{{ data|map(attribute='quantity')|sum }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table id="revenueTable">
+            <thead>
+                <tr>
+                    <th class="sortable" data-column="artist_name" data-type="text">Artist</th>
+                    <th class="sortable" data-column="item_name" data-type="text">Item Name</th>
+                    <th class="sortable" data-column="item_type" data-type="text">Type</th>
+                    <th class="sortable" data-column="label_name" data-type="text">Label</th>
+                    <th class="sortable" data-column="region" data-type="text">Region</th>
+                    <th class="sortable number" data-column="quantity" data-type="number">Qty</th>
+                    <th class="sortable" data-column="currency" data-type="text">Currency</th>
+                    <th class="sortable currency" data-column="gross_revenue" data-type="number">Gross Revenue</th>
+                    <th class="sortable currency" data-column="net_revenue" data-type="number">Net Revenue</th>
+                    <th class="sortable date" data-column="transaction_date_from" data-type="date">Transaction From</th>
+                    <th class="sortable date" data-column="transaction_date_to" data-type="date">Transaction To</th>
+                    <th class="sortable date" data-column="date_range_begin" data-type="text">Report Period</th>
+                    <th class="sortable date" data-column="import_date" data-type="date">Imported</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                {% for row in data %}
+                <tr>
+                    <td><strong>{{ row.artist_name }}</strong></td>
+                    <td>{{ row.item_name }}</td>
+                    <td>{{ row.item_type }}</td>
+                    <td>{{ row.label_name }}</td>
+                    <td>{{ row.region }}</td>
+                    <td class="number">{{ row.quantity }}</td>
+                    <td>{{ row.currency }}</td>
+                    <td class="currency">${{ "%.2f"|format(row.gross_revenue) }}</td>
+                    <td class="currency">${{ "%.2f"|format(row.net_revenue) }}</td>
+                    <td class="date">{{ row.transaction_date_from }}</td>
+                    <td class="date">{{ row.transaction_date_to }}</td>
+                    <td class="date">{{ row.date_range_begin }} to {{ row.date_range_end }}</td>
+                    <td class="date">{{ row.import_date }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Embed the data as JSON for JavaScript manipulation
+    const tableData = {{ data|tojson if data else '[]' }};
+    let currentSort = { column: null, direction: 'asc' };
+
+    function renderTable(data) {
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = '';
+        
+        data.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><strong>${escapeHtml(row.artist_name || '')}</strong></td>
+                <td>${escapeHtml(row.item_name || '')}</td>
+                <td>${escapeHtml(row.item_type || '')}</td>
+                <td>${escapeHtml(row.label_name || '')}</td>
+                <td>${escapeHtml(row.region || '')}</td>
+                <td class="number">${row.quantity || 0}</td>
+                <td>${escapeHtml(row.currency || '')}</td>
+                <td class="currency">$${(row.gross_revenue || 0).toFixed(2)}</td>
+                <td class="currency">$${(row.net_revenue || 0).toFixed(2)}</td>
+                <td class="date">${escapeHtml(row.transaction_date_from || '')}</td>
+                <td class="date">${escapeHtml(row.transaction_date_to || '')}</td>
+                <td class="date">${escapeHtml(row.date_range_begin || '')} to ${escapeHtml(row.date_range_end || '')}</td>
+                <td class="date">${escapeHtml(row.import_date || '')}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function escapeHtml(unsafe) {
+        return (unsafe || '')
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    function sortTable(column, type) {
+        let sortedData;
+        
+        if (currentSort.column === column) {
+            // Toggle direction if same column
+            currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+        } else {
+            // New column, start with ascending
+            currentSort.column = column;
+            currentSort.direction = 'asc';
+        }
+
+        sortedData = [...tableData].sort((a, b) => {
+            let aVal = a[column] || '';
+            let bVal = b[column] || '';
+
+            // Handle different data types
+            if (type === 'number') {
+                aVal = parseFloat(aVal) || 0;
+                bVal = parseFloat(bVal) || 0;
+            } else if (type === 'date') {
+                aVal = new Date(aVal) || new Date(0);
+                bVal = new Date(bVal) || new Date(0);
+            } else {
+                // Text comparison - case insensitive
+                aVal = String(aVal).toLowerCase();
+                bVal = String(bVal).toLowerCase();
+            }
+
+            let comparison = 0;
+            if (aVal > bVal) comparison = 1;
+            if (aVal < bVal) comparison = -1;
+
+            return currentSort.direction === 'desc' ? -comparison : comparison;
+        });
+
+        // Update header indicators
+        document.querySelectorAll('th').forEach(th => {
+            th.classList.remove('sort-asc', 'sort-desc');
+        });
+
+        const currentHeader = document.querySelector(`th[data-column="${column}"]`);
+        if (currentHeader) {
+            currentHeader.classList.add(currentSort.direction === 'asc' ? 'sort-asc' : 'sort-desc');
+        }
+
+        renderTable(sortedData);
+    }
+
+    // Add click listeners to sortable headers
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('th.sortable').forEach(header => {
+            header.addEventListener('click', function() {
+                const column = this.getAttribute('data-column');
+                const type = this.getAttribute('data-type');
+                sortTable(column, type);
+            });
+        });
+
+        // Initial render
+        if (tableData.length > 0) {
+            renderTable(tableData);
+        }
+    });
+</script>
+{% endblock %}

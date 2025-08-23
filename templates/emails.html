@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 
-{% block title %}Revenue Reports Utility - Bandcamp Utilities{% endblock %}
-{% block page_title %}Revenue Reports Utility{% endblock %}
-{% block page_description %}Download and consolidate revenue reports from Bandcamp artist pages{% endblock %}
+{% block title %}Mailing List Utility - Bandcamp Utilities{% endblock %}
+{% block page_title %}Mailing List Utility{% endblock %}
+{% block page_description %}Download and consolidate mailing lists from Bandcamp artist pages{% endblock %}
 
 {% block extra_css %}
 .form-container {
@@ -25,7 +25,6 @@
 }
 
 .form-group input[type="text"], 
-.form-group input[type="date"], 
 .form-group select {
     width: 100%;
     padding: 12px;
@@ -37,22 +36,10 @@
 }
 
 .form-group input[type="text"]:focus, 
-.form-group input[type="date"]:focus, 
 .form-group select:focus {
-    border-color: #3498db;
-    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+    border-color: #9b59b6;
+    box-shadow: 0 0 0 3px rgba(155, 89, 182, 0.1);
     outline: none;
-}
-
-.date-row {
-    display: flex;
-    gap: 20px;
-    margin-bottom: 20px;
-}
-
-.date-row .form-group {
-    flex: 1;
-    margin-bottom: 0;
 }
 
 .checkbox-group {
@@ -78,7 +65,7 @@
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
-    background: linear-gradient(135deg, #3498db, #2980b9);
+    background: linear-gradient(135deg, #9b59b6, #8e44ad);
     color: white;
     border: none;
     border-radius: 6px;
@@ -86,9 +73,9 @@
 }
 
 .submit-btn:hover:not(:disabled) {
-    background: linear-gradient(135deg, #2980b9, #2574a9);
+    background: linear-gradient(135deg, #8e44ad, #7d3c98);
     transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+    box-shadow: 0 5px 15px rgba(155, 89, 182, 0.3);
 }
 
 .submit-btn:disabled {
@@ -140,7 +127,7 @@
     width: 16px;
     height: 16px;
     border: 2px solid #f3f3f3;
-    border-top: 2px solid #3498db;
+    border-top: 2px solid #9b59b6;
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin-right: 8px;
@@ -149,26 +136,6 @@
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
-}
-
-.date-info {
-    background-color: #e8f4f8;
-    padding: 15px;
-    border-radius: 6px;
-    margin-bottom: 20px;
-    border-left: 4px solid #3498db;
-    font-size: 14px;
-}
-
-@media (max-width: 600px) {
-    .date-row {
-        flex-direction: column;
-        gap: 0;
-    }
-    
-    .date-row .form-group {
-        margin-bottom: 20px;
-    }
 }
 {% endblock %}
 
@@ -182,14 +149,10 @@
     <!-- Running status (initially hidden) -->
     <div class="status running hidden" id="runningStatus">
         <span class="spinner"></span>
-        Revenue reports utility is running... Please wait.
+        Mailing list utility is running... Please wait.
     </div>
     
-    <div class="date-info">
-        <strong>📅 Date Range Selection:</strong> Choose the date range for the revenue reports you want to download and consolidate.
-    </div>
-    
-    <form action="/reports" method="post" id="utilityForm">
+    <form action="/mails" method="post" id="utilityForm">
         <div class="form-group">
             <label for="browser">Browser:</label>
             <select id="browser" name="browser">
@@ -197,24 +160,11 @@
                 <option value="{{ b }}" {% if b == 'firefox' %}selected{% endif %}>{{ b|title }}</option>
                 {% endfor %}
             </select>
-            <div class="form-help">Choose the browser to use for downloading revenue reports</div>
+            <div class="form-help">Choose the browser to use for downloading mailing lists</div>
         </div>
-        
-        <div class="date-row">
-            <div class="form-group">
-                <label for="date_begin">Begin Date:</label>
-                <input type="date" id="date_begin" name="date_begin" value="{{ default_begin_date }}" required>
-                <div class="form-help">Start date for revenue reports (YYYY-MM-DD)</div>
-            </div>
-            <div class="form-group">
-                <label for="date_end">End Date:</label>
-                <input type="date" id="date_end" name="date_end" value="{{ default_end_date }}" required>
-                <div class="form-help">End date for revenue reports (YYYY-MM-DD)</div>
-            </div>
-        </div>
-        
+    
         <button type="submit" class="submit-btn" id="submitBtn">
-            <span id="btnText">Run Revenue Reports Utility</span>
+            <span id="btnText">Run Mailing List Utility</span>
         </button>
     </form>
 </div>
@@ -225,10 +175,12 @@
     let statusCheckInterval;
     
     function checkStatus() {
-        fetch('/status/reports')
+        fetch('/status/mails')
             .then(response => response.json())
             .then(data => {
                 const runningStatus = document.getElementById('runningStatus');
+                const pdfLink = document.getElementById('pdfLink');
+                const pdfDownload = document.getElementById('pdfDownload');
                 const submitBtn = document.getElementById('submitBtn');
                 const btnText = document.getElementById('btnText');
                 
@@ -239,10 +191,10 @@
                 } else {
                     runningStatus.classList.add('hidden');
                     submitBtn.disabled = false;
-                    btnText.textContent = 'Run Revenue Reports Utility';
+                    btnText.textContent = 'Run Mailing List Utility';
                     
                     if (data.completed && data.pdf_filename) {
-                        pdfDownload.href = '/download/reports/' + data.pdf_filename;
+                        pdfDownload.href = '/download/mails/' + data.pdf_filename;
                         pdfLink.classList.remove('hidden');
                         
                         // Stop checking once completed
@@ -260,7 +212,7 @@
         {% if utility_status.running %}
             checkStatus();
             statusCheckInterval = setInterval(checkStatus, 2000); // Check every 2 seconds
-        {% elif utility_status.completed %}
+        {% elif utility_status.completed and utility_status.pdf_filename %}
             checkStatus();
         {% endif %}
     });
@@ -268,31 +220,11 @@
     // Handle form submission
     document.getElementById('utilityForm').addEventListener('submit', function() {
 
+        
         // Start status checking after a short delay
         setTimeout(() => {
             statusCheckInterval = setInterval(checkStatus, 2000);
         }, 1000);
-    });
-    
-    // Date validation
-    document.getElementById('date_begin').addEventListener('change', function() {
-        const beginDate = new Date(this.value);
-        const endDateInput = document.getElementById('date_end');
-        const endDate = new Date(endDateInput.value);
-        
-        if (beginDate > endDate) {
-            endDateInput.value = this.value;
-        }
-    });
-    
-    document.getElementById('date_end').addEventListener('change', function() {
-        const endDate = new Date(this.value);
-        const beginDateInput = document.getElementById('date_begin');
-        const beginDate = new Date(beginDateInput.value);
-        
-        if (endDate < beginDate) {
-            beginDateInput.value = this.value;
-        }
     });
 </script>
 {% endblock %}

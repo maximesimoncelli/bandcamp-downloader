@@ -1,130 +1,141 @@
-<!doctype html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <title>Bandcamp Utilities</title>
-    <style>
-        body { 
-            font-family: sans-serif; 
-            max-width: 800px; 
-            margin: auto; 
-            padding: 20px; 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            color: white;
-        }
-        .container {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 15px;
-            padding: 40px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            color: #333;
-        }
-        h1 { 
-            text-align: center; 
-            margin-bottom: 30px; 
-            color: #4a5568;
-            font-size: 2.5em;
-        }
-        .utility-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            margin-top: 40px;
-        }
-        .utility-card {
-            background: white;
-            border: 2px solid #e2e8f0;
-            border-radius: 12px;
-            padding: 30px;
-            text-align: center;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            transition: all 0.3s ease;
-            text-decoration: none;
-            color: inherit;
-        }
-        .utility-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-            border-color: #667eea;
-        }
-        .utility-card h2 {
-            color: #4a5568;
-            margin-bottom: 15px;
-            font-size: 1.5em;
-        }
-        .utility-card p {
-            color: #718096;
-            line-height: 1.6;
-            margin-bottom: 20px;
-        }
-        .status-indicator {
-            display: inline-block;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.85em;
-            font-weight: bold;
-            margin-top: 10px;
-        }
-        .status-idle { background: #e6fffa; color: #319795; }
-        .status-running { background: #fef5e7; color: #d69e2e; }
-        .status-completed { background: #f0fff4; color: #38a169; }
-        .icon {
-            font-size: 3em;
-            margin-bottom: 15px;
-            display: block;
-        }
-        .description {
-            color: #666;
-            margin-bottom: 30px;
-            text-align: center;
-            font-size: 1.1em;
-            line-height: 1.6;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Bandcamp Utilities</h1>
-        <p class="description">
-            Choose a utility to download and generate reports from your Bandcamp data. 
-            Each utility creates consolidated CSV files and PDF reports from your artist data.
-        </p>
-        
-        <div class="utility-grid">
-            <a href="/mails" class="utility-card">
-                <div class="icon">📧</div>
-                <h2>Mailing Lists</h2>
-                <p>Download and consolidate mailing list data from all your Bandcamp artists. Creates a unified database of fan emails with purchase history.</p>
-                {% if utility_status.mails.running %}
-                    <span class="status-indicator status-running">Running...</span>
-                {% elif utility_status.mails.completed and utility_status.mails.pdf_filename %}
-                    <span class="status-indicator status-completed">Report Ready</span>
-                {% else %}
-                    <span class="status-indicator status-idle">Ready</span>
-                {% endif %}
-            </a>
-            
-            <a href="/reports" class="utility-card">
-                <div class="icon">💰</div>
-                <h2>Revenue Reports</h2>
-                <p>Download and analyze revenue data from all your Bandcamp artists. Generates detailed financial reports with totals and summaries.</p>
-                {% if utility_status.reports.running %}
-                    <span class="status-indicator status-running">Running...</span>
-                {% elif utility_status.reports.completed and utility_status.reports.pdf_filename %}
-                    <span class="status-indicator status-completed">Report Ready</span>
-                {% else %}
-                    <span class="status-indicator status-idle">Ready</span>
-                {% endif %}
-            </a>
-        </div>
-    </div>
+{% extends "base.html" %}
 
-    <script>
-        // Auto-refresh status every 3 seconds
-        setInterval(() => {
-            window.location.reload();
-        }, 3000);
-    </script>
-</body>
-</html>
+{% block title %}Home - Bandcamp Utilities{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block page_description %}Overview of your Bandcamp data management tools and utilities{% endblock %}
+
+{% block extra_css %}
+.utility-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    margin-bottom: 40px;
+}
+
+.database-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    margin-top: 20px;
+}
+
+.utility-card, .database-card {
+    background: white;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 30px;
+    text-align: center;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+    text-decoration: none;
+    color: inherit;
+}
+
+.utility-card:hover, .database-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    border-color: #667eea;
+}
+
+.utility-card .icon, .database-card .icon {
+    font-size: 3em;
+    margin-bottom: 15px;
+    display: block;
+}
+
+.utility-card h2, .database-card h2 {
+    color: #2c3e50;
+    margin-bottom: 15px;
+    font-size: 1.4em;
+}
+
+.utility-card p, .database-card p {
+    color: #666;
+    line-height: 1.5;
+    margin-bottom: 20px;
+}
+
+.section-divider {
+    margin: 50px 0 30px;
+    padding-top: 30px;
+    border-top: 2px solid #e2e8f0;
+}
+
+.section-title {
+    color: #2c3e50;
+    font-size: 1.5em;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.section-description {
+    color: #666;
+    text-align: center;
+    margin-bottom: 30px;
+}
+{% endblock %}
+
+{% block content %}
+<div class="utilities-section">
+    <h2 class="section-title">Data Collection Utilities</h2>
+    <p class="section-description">Download and process data from your Bandcamp artists</p>
+    
+    <div class="utility-grid">
+        <a href="/mails" class="utility-card">
+            <div class="icon">📧</div>
+            <h2>Mailing Lists</h2>
+            <p>Download and consolidate mailing list data from all your Bandcamp artists. Creates a unified database of fan emails with purchase history.</p>
+            {% if utility_status.mails.running %}
+                <span class="status-indicator status-running">Running...</span>
+            {% elif utility_status.mails.completed and utility_status.mails.pdf_filename %}
+                <span class="status-indicator status-completed">Report Ready</span>
+            {% else %}
+                <span class="status-indicator status-idle">Ready</span>
+            {% endif %}
+        </a>
+        
+        <a href="/reports" class="utility-card">
+            <div class="icon">💰</div>
+            <h2>Revenue Reports</h2>
+            <p>Download and analyze revenue data from all your Bandcamp artists. Generates detailed financial reports with totals and summaries.</p>
+            {% if utility_status.reports.running %}
+                <span class="status-indicator status-running">Running...</span>
+            {% elif utility_status.reports.completed and utility_status.reports.pdf_filename %}
+                <span class="status-indicator status-completed">Report Ready</span>
+            {% else %}
+                <span class="status-indicator status-idle">Ready</span>
+            {% endif %}
+        </a>
+    </div>
+</div>
+
+<div class="section-divider">
+    <h2 class="section-title">Database Views</h2>
+    <p class="section-description">Browse and analyze your collected data in searchable tables</p>
+    
+    <div class="database-grid">
+        <a href="/database" class="database-card">
+            <div class="icon">🗄️</div>
+            <h2>Revenue Database</h2>
+            <p>View revenue reports data stored in the SQLite database in an easy-to-read table format with summary statistics.</p>
+            <span class="status-indicator status-idle">View Data</span>
+        </a>
+        
+        <a href="/mail-database" class="database-card">
+            <div class="icon">📊</div>
+            <h2>Mailing Database</h2>
+            <p>View mailing lists data stored in the SQLite database with customer information, purchase history, and geographic details.</p>
+            <span class="status-indicator status-idle">View Data</span>
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Auto-refresh status every 3 seconds
+    setInterval(() => {
+        window.location.reload();
+    }, 3000);
+</script>
+{% endblock %}
